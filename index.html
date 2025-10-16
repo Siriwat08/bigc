@@ -24,7 +24,7 @@ async function serverCall(action, args=[]) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' }, // ต้องเป็น application/json
     mode: 'cors',
-    body: JSON.stringify(payload)
+    body: JSON.stringify({ action: 'getWorkStateForToday', args: [profile.userId] })
   });
   const data = await res.json();
   if(data.status === 'error') throw new Error(data.message);
