@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบบันทึกเวลาทำงาน</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+<h1>ระบบบันทึกเวลาทำงาน</h1>
+<div id="user-info"></div>
+<div id="main-view"></div>
+
+<script>
+const LIFF_ID = '2008297366-7ylXdVAB';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyETMNM8-CjqJt_McBNTzy1TpTgabr1o9hBSeQS5u_U0x9_Rltzf7K7WVnq_LJo8ucz/exec'; // ตัวอย่าง: https://script.google.com/macros/s/xxxx/exec
+let profile = null;
+
+async function serverCall(action, args=[]) {
+  const payload = { action, args };
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    mode: 'cors',
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if(data.status === 'error') throw new Error(data.message);
+  return data.response;
+}
+
+async function init() {
+  await liff.init({ liffId: LIFF_ID });
+  if(!liff.isLoggedIn()) liff.login();
+  profile = await liff.getProfile();
+  document.getElementById('user-info').innerHTML =
+    `<p>สวัสดี ${profile.displayName}</p><img src="${profile.pictureUrl}" width="80">`;
+  renderMain();
+}
+
+async function renderMain() {
+  try {
+    const state = await serverCall('getWorkStateForToday', [profile.userId]);
+    let html = '';
+    if(state.status === 'NOT_STARTED') {
+      html += `<button onclick="startWork()">ลงเวลาเริ่มงาน</button>`;
+    } else if(state.status === 'STARTED_NOT_ENDED') {
+      html += `<button onclick="endWork()">ลงเวลาเลิกงาน</button>`;
+    } else {
+      html += `<p>วันนี้คุณบันทึกเวลาเรียบร้อยแล้ว</p>`;
+    }
+    html += `<button onclick="showHistory()">ดูประวัติ 5 วันล่าสุด</button>`;
+    document.getElementById('main-view').innerHTML = html;
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+async function startWork() {
+  const startTime = prompt('เวลาเริ่มงาน (HH:mm)');
+  const startMileage = prompt('เลขไมล์เริ่มงาน');
+  // Upload รูปถ่าย (ตัวอย่างไม่ใส่ file picker)
+  const payload = { userId: profile.userId, startTime, startMileage };
+  const res = await serverCall('saveStartWork', [payload]);
+  alert(res.message);
+  renderMain();
+}
+
+async function endWork() {
+  const endTime = prompt('เวลาเลิกงาน (HH:mm)');
+  const endMileage = prompt('เลขไมล์เลิกงาน');
+  const trips = prompt('จำนวนรอบงาน');
+  const totalDeliveries = prompt('จำนวนจุดส่งทั้งหมด');
+  const successfulDeliveries = prompt('จำนวนจุดส่งสำเร็จ');
+  const notes = prompt('หมายเหตุ');
+  const payload = { userId: profile.userId, endTime, endMileage, trips, totalDeliveries, successfulDeliveries, notes };
+  const res = await serverCall('saveEndWork', [payload]);
+  alert(res.message);
+  renderMain();
+}
+
+async function showHistory() {
+  const history = await serverCall('getWorkHistory', [profile.userId]);
+  let html = '<h3>5 วันล่าสุด</h3><table border="1"><tr><th>วันที่</th><th>เวลาเริ่ม</th><th>เวลาเลิก</th><th>ระยะทางรวม</th><th>ส่งสำเร็จ</th></tr>';
+  history.forEach(r=>{
+    html += `<tr>
+      <td>${r['ข้อมูลงานวันที่']||''}</td>
+      <td>${r['เวลาเริ่มงาน']||''}</td>
+      <td>${r['เวลาเลิกงาน']||''}</td>
+      <td>${r['ระยะทางรวม']||''}</td>
+      <td>${r['จำนวนจุดที่ส่งสำเร็จ']||''}</td>
+    </tr>`;
+  });
+  html += '</table>';
+  document.getElementById('main-view').innerHTML = html;
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
