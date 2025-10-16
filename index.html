@@ -12,15 +12,17 @@
 <div id="main-view"></div>
 
 <script>
-const LIFF_ID = '2008297366-7ylXdVAB';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyETMNM8-CjqJt_McBNTzy1TpTgabr1o9hBSeQS5u_U0x9_Rltzf7K7WVnq_LJo8ucz/exec'; // ตัวอย่าง: https://script.google.com/macros/s/xxxx/exec
+const LIFF_ID = 'YOUR_LIFF_ID';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyYqLvoMB-VB8Ul_sgCTHtB0Ay-chuQK1-VjR_-P77k9a7umUyV1fiQ5iekLasoKBoh/exec'; // เช่น https://script.google.com/macros/s/xxxx/exec
 let profile = null;
 
+// ---------- serverCall ----------
 async function serverCall(action, args=[]) {
   const payload = { action, args };
+  console.log('Sending payload:', payload);
   const res = await fetch(GAS_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    headers: { 'Content-Type': 'application/json' }, // ต้องเป็น application/json
     mode: 'cors',
     body: JSON.stringify(payload)
   });
@@ -29,6 +31,7 @@ async function serverCall(action, args=[]) {
   return data.response;
 }
 
+// ---------- init ----------
 async function init() {
   await liff.init({ liffId: LIFF_ID });
   if(!liff.isLoggedIn()) liff.login();
@@ -38,9 +41,11 @@ async function init() {
   renderMain();
 }
 
+// ---------- render main ----------
 async function renderMain() {
   try {
     const state = await serverCall('getWorkStateForToday', [profile.userId]);
+    console.log('Work state:', state);
     let html = '';
     if(state.status === 'NOT_STARTED') {
       html += `<button onclick="startWork()">ลงเวลาเริ่มงาน</button>`;
@@ -53,19 +58,22 @@ async function renderMain() {
     document.getElementById('main-view').innerHTML = html;
   } catch(e) {
     console.error(e);
+    document.getElementById('main-view').innerHTML = `<p style="color:red;">Error: ${e.message}</p>`;
   }
 }
 
+// ---------- start work ----------
 async function startWork() {
   const startTime = prompt('เวลาเริ่มงาน (HH:mm)');
   const startMileage = prompt('เลขไมล์เริ่มงาน');
-  // Upload รูปถ่าย (ตัวอย่างไม่ใส่ file picker)
+  // สำหรับตัวอย่างนี้ยังไม่ใส่ file picker
   const payload = { userId: profile.userId, startTime, startMileage };
   const res = await serverCall('saveStartWork', [payload]);
   alert(res.message);
   renderMain();
 }
 
+// ---------- end work ----------
 async function endWork() {
   const endTime = prompt('เวลาเลิกงาน (HH:mm)');
   const endMileage = prompt('เลขไมล์เลิกงาน');
@@ -73,12 +81,21 @@ async function endWork() {
   const totalDeliveries = prompt('จำนวนจุดส่งทั้งหมด');
   const successfulDeliveries = prompt('จำนวนจุดส่งสำเร็จ');
   const notes = prompt('หมายเหตุ');
-  const payload = { userId: profile.userId, endTime, endMileage, trips, totalDeliveries, successfulDeliveries, notes };
+  const payload = {
+    userId: profile.userId,
+    endTime,
+    endMileage,
+    trips,
+    totalDeliveries,
+    successfulDeliveries,
+    notes
+  };
   const res = await serverCall('saveEndWork', [payload]);
   alert(res.message);
   renderMain();
 }
 
+// ---------- show history ----------
 async function showHistory() {
   const history = await serverCall('getWorkHistory', [profile.userId]);
   let html = '<h3>5 วันล่าสุด</h3><table border="1"><tr><th>วันที่</th><th>เวลาเริ่ม</th><th>เวลาเลิก</th><th>ระยะทางรวม</th><th>ส่งสำเร็จ</th></tr>';
